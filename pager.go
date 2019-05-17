@@ -3,11 +3,12 @@ package pager
 import (
 	"bytes"
 	"fmt"
-	tm "github.com/buger/goterm"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+
+	tm "github.com/buger/goterm"
 )
 
 // Pager implements the io.Writer interface and holds an output
@@ -30,19 +31,17 @@ func (p Pager) Page() {
 	if len(lines) <= tm.Height() {
 		fmt.Fprintf(p.Output, bufString)
 	} else {
-		// Open a new pipe
-		pipeRead, pipeWrite := io.Pipe()
+		// Setup less as a pager
 		pager := exec.Command("less")
-		// Attach the read-side to the stdin of 'less'
-		pager.Stdin = pipeRead
+		// Get a pipe that will be connected to stdin on start-up
+		w, _ := pager.StdinPipe()
 		pager.Stdout = p.Output
 		pager.Stderr = os.Stderr
 		pager.Start()
-		// Write the string representation of Buffer to write-side
-		// of the pipe
-		fmt.Fprintf(pipeWrite, bufString)
-		// Close the read-side (causing 'less' to exit cleanly)
-		pipeRead.Close()
+		// Write the string representation of Buffer to the stdin pipe for 'less'
+		fmt.Fprintf(w, bufString)
+		// Close the stdin pipe (causing 'less' to exit cleanly)
+		w.Close()
 		// Wait for the process to complete
 		pager.Wait()
 	}
